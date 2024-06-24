@@ -3,6 +3,7 @@
 # This file serves as the main model file.  
 #   It is called by the user to run the model
 
+import cantera as ct
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
@@ -34,9 +35,18 @@ X_Li_max = 0.99 # Lithium mole fraction in an electrode at which to terminate th
 
 # Operating Conditions
 # If there is more than one external current the simulation will run back to back
+'''
 i_external = np.array([0, 2000, -3000, 1000,-500]) # external current into the Anode [A/m^2] 
 t_sim_max = [5,15,5,30,10] # the maximum time the battery will be held at each current [s]
+'''
+i_external = np.array([0,0]) # external current into the Anode [A/m^2] 
+t_sim_max = [5,15] # the maximum time the battery will be held at each current [s]
 T = 298.15 # standard temperature [K]
+P = ct.one_atm # standard pressure [Pa]
+
+# Cantera objects
+g = ct.Solution('graphite.yaml') # create a solution object for graphite
+g.TP = 298.15, 101325 # Set the state [K],[Pa]
 
 # Initial Conditions
 Phi_dl_0_an = 0.5 # initial value for Phi_dl for the Anode [V]
@@ -45,8 +55,8 @@ Phi_dl_0_ca = -0.6 # initial value for Phi_dl for the Cathode [V]
 X_Li_0_ca = 0.72 # Initial Mole Fraction of the Cathode for Lithium [-]
 
 # Material parameters:
-MW_g = 12 # Molectular Weight of Graphite [g/mol]
-rho_g = 2.2e6 # Denstity of graphite [g/m^3]
+MW_g = g.mean_molecular_weight # Molectular Weight of Graphite [g/mol]
+rho_g = g.density*1000 # Denstity of graphite [g/m^3]
 MW_FePO4 = 150.815 # Molectular Weight of iron phosphate [g/mol]
 rho_FePO4 = 2.87e6 # Denstity of iron phosphate [g/m^3]
 C_Li_plus = 1000 # Concentration of Li+ in the Electrolyte [mol/m^2] (I assume electrolyte transport is fast)
@@ -59,7 +69,7 @@ Cap_dl = 6*10**-5 # Double Layer Capacitance [F/m^2]
 Beta = 0.5 # [-] Beta = (1 - Beta) in this case 
 # both Li+ and electrons are products in this reaction so they have postive coefficients
 nu_Li_plus = 1 # stoichiometric coefficient of Lithium [mol_Li+/mol_rxn]
-n = 1 # number of electrons [mol_electrons/mol_rxn]
+n = -1 # number of electrons multiplied by the charge of an electron [mol_electrons/mol_rxn]
 
 # Microstructure
 t_sep =  1e-5 # thickness of the seperator [m]
@@ -72,8 +82,8 @@ Epsilon_g = 0.65 # volume fraction fo graphite [-]
 '''
 Constants and Parameters
 ''' 
-F = 96485.34 #Faraday's number [C/mol_electron]
-R = 8.3145 #Universal gas constant [J/mol-K]
+F = ct.faraday/1000 #Faraday's number [C/mol_electron]
+R = ct.gas_constant/1000 #Universal gas constant [J/mol-K]
 
 # Geometry
 #   Anode
@@ -123,7 +133,7 @@ React_an = [LiC6_rxn_an]
 Prod_an = [Li_plus_rxn_an,C6_rxn_an]
 
 # Both electrodes have the same reation and in this forward reaction one electron is 
-#   produced so n = 1 (as it is defined above in the inputs)
+#   produced so n = -1 (as it is defined above in the inputs)
 Anode = Half_Cell(React_an,Prod_an,n,T,Beta,F,R,Cap_dl,i_o,A_sg_an,A_s_an,'LiC6','Li+')
 
 # Cathode reacation: LiFePO4 -> FePO4 + Li+ + e-
@@ -257,7 +267,7 @@ fig1, (ax1, ax2) = plt.subplots(2)
 ax1.plot(time,i_dl_an,'.-', color='firebrick')
 ax1.plot(time, i_ex/A_sg_an, linewidth=4, color='deepskyblue')
 ax1.plot(time,i_far_an, color='black')
-ax1.set_ylim((-2*max(abs(i_external))/A_sg_an ,1.5*max(abs(i_external))/A_sg_an))
+#ax1.set_ylim((-2*max(abs(i_external))/A_sg_an ,1.5*max(abs(i_external))/A_sg_an))
 ax1.set_title("Current in the Anode")
 ax1.set_xlabel("time [s]")
 ax1.set_ylabel("Current [A/m^2]")
@@ -267,7 +277,7 @@ ax1.legend(['DL','EXT','FAR'], bbox_to_anchor=(1, 0.5), loc = 'center left')
 ax2.plot(time,i_dl_ca,'.-', color='firebrick')
 ax2.plot(time, i_ex/A_sg_ca, linewidth=4, color='deepskyblue')
 ax2.plot(time,i_far_ca, color='black')
-ax2.set_ylim((-2*max(abs(i_external))/A_sg_an ,1.5*max(abs(i_external))/A_sg_an))
+#ax2.set_ylim((-2*max(abs(i_external))/A_sg_an ,1.5*max(abs(i_external))/A_sg_an))
 ax2.set_title("Current in the Cathode")
 ax2.set_xlabel("time [s]")
 ax2.set_ylabel("Current [A/m^2]")

@@ -168,9 +168,9 @@ def residual(_,SV,i_ext,Anode,Cathode):
     Anode.C[-1] = 1. - C_Li_a
     
     U_a = Half_Cell_Eqlib_Potential(Anode)
-    i_far_a= Butler_Volmer(Anode.i_o,V_a,U_a,Anode.BnF_RT_an,Anode.BnF_RT_ca)
+    i_far_a = Butler_Volmer(Anode.i_o,V_a,U_a,Anode.BnF_RT_an,Anode.BnF_RT_ca)
    
-    dPhi_dl_a_dt = (i_far_a - i_ext/Anode.A_sg)/Anode.Cap  # returns an expression for d Delta_Phi_dl/dt in terms of Delta_Phi_dl
+    dPhi_dl_a_dt = -1*(i_far_a - i_ext/Anode.A_sg)/Anode.Cap  # returns an expression for d Delta_Phi_dl/dt in terms of Delta_Phi_dl
     dC_Li_a_dt = i_far_a*Anode.nuA_nF # returns an expression for dC_Li/dt in terms of Delta_Phi_dl
     
     # Cathode
@@ -183,7 +183,7 @@ def residual(_,SV,i_ext,Anode,Cathode):
     U_c = Half_Cell_Eqlib_Potential(Cathode)
     i_far_c = Butler_Volmer(Cathode.i_o,V_c,U_c,Cathode.BnF_RT_an,Cathode.BnF_RT_ca)
     
-    dPhi_dl_c_dt = (i_far_c + i_ext/Cathode.A_sg)/Cathode.Cap
+    dPhi_dl_c_dt = -1*(i_far_c + i_ext/Cathode.A_sg)/Cathode.Cap
     dC_Li_c_dt = i_far_c*Cathode.nuA_nF
 
     dSVdt = [dPhi_dl_a_dt, dC_Li_a_dt, dPhi_dl_c_dt, dC_Li_c_dt]
