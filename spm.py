@@ -11,16 +11,20 @@ from spm_functions import Butler_Volmer as faradaic_current
 from spm_functions import Half_Cell_Eqlib_Potential, residual, Species, Participant, Half_Cell
 
 # Anode is on the left at x=0 and Cathode is on the right
-# LiC6 -> Li+ + C6 + e- (reaction at the anode and cathode)
+# LiC6 -> Li+ + C6 + e- (reaction at the anode)
+# LiFePO4 -> FePO4 + Li+ + e- (reaction at the cathode)
 # I do not track the movement of Li through the anode, only the rate of creation of Li+ at the surface
 # The rate Lithium ions enter the electrolyte from the anode is equal to the rate of Li+ enter the seperator and eventually the cathode
 # I assume the concentration in the electrolyte is in uniform so there is no diffusion and there is no bulk movement of the fluid
 #   so there is no convection therefore there is only migration which is driven by the potential difference
 # Potential drop across the electroltye obeys Ohm's Law
-# The cathode and anode have the same composition and dimensions 
 # I do not create an instance of the species/particiant classes for the electron so I track the 
 #   sign of the electron speperately using 'n'
 # Galvanostatic
+# A positive current dose work so it is when the battery. This is when both reactions proceed spontaniously to reduce their 
+#   thermodynamic potenitals. This happens durring discharging when a postive external current enters the anode
+#   and Lithium ions go from the anode to the cathode.
+# SI units: J, m, s, A, C, Pa, V, K, ohm, kg, kmol
 
 '''
 USER INPUTS
@@ -35,32 +39,28 @@ X_Li_max = 0.99 # Lithium mole fraction in an electrode at which to terminate th
 
 # Operating Conditions
 # If there is more than one external current the simulation will run back to back
-'''
-i_external = np.array([0, 2000, -3000, 1000,-500]) # external current into the Anode [A/m^2] 
-t_sim_max = [5,15,5,30,10] # the maximum time the battery will be held at each current [s]
-'''
-i_external = np.array([0,0]) # external current into the Anode [A/m^2] 
-t_sim_max = [5,15] # the maximum time the battery will be held at each current [s]
+i_external = np.array([0, 2000, 0, -3000, 0, 1000, 0, -500]) # external current into the Anode [A/m^2] 
+t_sim_max = [5,15,2,5,2,30,2,10] # the maximum time the battery will be held at each current [s]
 T = 298.15 # standard temperature [K]
 P = ct.one_atm # standard pressure [Pa]
 
 # Cantera objects
 g = ct.Solution('graphite.yaml') # create a solution object for graphite
-g.TP = 298.15, 101325 # Set the state [K],[Pa]
+g.TP = T,P # Set the state [K],[Pa]
 
 # Initial Conditions
-Phi_dl_0_an = 0.5 # initial value for Phi_dl for the Anode [V]
+Phi_dl_0_an = -0.45 # initial value for Phi_dl for the Anode [V]
 X_Li_0_an = 0.35 # Initial Mole Fraction of the Anode for Lithium [-]
-Phi_dl_0_ca = -0.6 # initial value for Phi_dl for the Cathode [V]
-X_Li_0_ca = 0.72 # Initial Mole Fraction of the Cathode for Lithium [-]
+Phi_dl_0_ca = 0.5 # initial value for Phi_dl for the Cathode [V]
+X_Li_0_ca = 0.75 # Initial Mole Fraction of the Cathode for Lithium [-]
 
 # Material parameters:
-MW_g = g.mean_molecular_weight # Molectular Weight of Graphite [g/mol]
-rho_g = g.density*1000 # Denstity of graphite [g/m^3]
-MW_FePO4 = 150.815 # Molectular Weight of iron phosphate [g/mol]
-rho_FePO4 = 2.87e6 # Denstity of iron phosphate [g/m^3]
-C_Li_plus = 1000 # Concentration of Li+ in the Electrolyte [mol/m^2] (I assume electrolyte transport is fast)
-C_std = 1000 # Standard Concentration [mol/m^3] (same as 1 M)
+MW_g = g.mean_molecular_weight # Molectular Weight of Graphite [kg/kmol]
+rho_g = g.density # Denstity of graphite [kg/m^3]
+MW_FePO4 = 150.815 # Molectular Weight of iron phosphate [kg/kmol]
+rho_FePO4 = 2.87e3 # Denstity of iron phosphate [kg/m^3]
+C_Li_plus = 1 # Concentration of Li+ in the Electrolyte [kmol/m^2] (I assume electrolyte transport is fast)
+C_std = 1 # Standard Concentration [kmol/m^3] (same as 1 M)
 sigma_sep = 1.2 # Ionic conductivity for the seperator [1/m-ohm] (this is concentration dependent but it is constant for now)
 
 # Kinetic parameters (both electrodes have the same reaction for now)
@@ -82,8 +82,8 @@ Epsilon_g = 0.65 # volume fraction fo graphite [-]
 '''
 Constants and Parameters
 ''' 
-F = ct.faraday/1000 #Faraday's number [C/mol_electron]
-R = ct.gas_constant/1000 #Universal gas constant [J/mol-K]
+F = ct.faraday #Faraday's number [C/kmol_electron]
+R = ct.gas_constant #Universal gas constant [J/kmol-K]
 
 # Geometry
 #   Anode
@@ -98,19 +98,19 @@ A_s_ca = 3/r_ca # ratio of surface area to volume for the graphite anode [1/m]
 A_sg_ca = Epsilon_g*Delta_y_ca*A_s_ca # interface surface area per geometric surface area [m^2_interface/m^2_geometric]
 
 # Initial Concentrations
-# The number of moles of C6 in a single anode particle [mol]. Divide by 6 to 
-#    convert MW from per mole of carbon to per mole of C6 [mol]
-C_g = rho_g/MW_g/6 # Molar concentration of C6 in the anode [mol/m^3]
+# The number of kilomoles of C6 in a single anode particle [kmol]. Divide by 6 to 
+#    convert MW from per kilomole of carbon to per mole of C6 [kmol]
+C_g = rho_g/MW_g/6 # Molar concentration of C6 in the anode [kmol/m^3]
 
 X_g_0_an = 1 - X_Li_0_an # Initial Mole Fraction of Graphite [-]
-C_Li_0_an = C_g*X_Li_0_an # Initial Lithium molar concentration in the Anode [mol_Li/m^3-graphite]
-C_g_0_an = C_g*X_g_0_an # Initial graphite molar concentration in the Anode [mol_Li/m^3-graphite]
+C_Li_0_an = C_g*X_Li_0_an # Initial Lithium molar concentration in the Anode [kmol_Li/m^3-graphite]
+C_g_0_an = C_g*X_g_0_an # Initial graphite molar concentration in the Anode [kmol_Li/m^3-graphite]
 
-C_FePO4 = rho_FePO4/MW_FePO4 # Molar concentration of FePO4 in the cathode [mol/m^3]
+C_FePO4 = rho_FePO4/MW_FePO4 # Molar concentration of FePO4 in the cathode [kmol/m^3]
 
 X_FePO4_0 = 1 - X_Li_0_ca # Initial Mole Fraction of FePO4 [-]
-C_Li_0_ca = C_FePO4*X_Li_0_ca # Initial Lithium molar concentration in the Anode [mol_Li/m^3-FePO4]
-C_FePO4_0 = C_FePO4*X_FePO4_0 # Initial FePO4 molar concentration in the Anode [mol_Li/m^3-FePO4]
+C_Li_0_ca = C_FePO4*X_Li_0_ca # Initial Lithium molar concentration in the Anode [kmol_Li/m^3-FePO4]
+C_FePO4_0 = C_FePO4*X_FePO4_0 # Initial FePO4 molar concentration in the Anode [kmol_Li/m^3-FePO4]
 
 '''
 Set up the Half Cells
@@ -188,9 +188,14 @@ for ind, i_ext in enumerate(i_external):
     t_end = t_start + t_sim_max[ind] # max length of time passed in the integration [s]
     t_span = [t_start,t_end]
     SV_0 = [sim_inputs[0], sim_inputs[1], sim_inputs[2], sim_inputs[3]] # initial values
-
+    
     # Integrater
-    SV = solve_ivp(residual,t_span,SV_0,method='BDF',
+    if i_ext == 0:
+         SV = solve_ivp(residual,t_span,SV_0,method='BDF',
+                args=(i_ext,Anode,Cathode),
+                rtol = 1e-8,atol = 1e-10, events=None)
+    else:
+        SV = solve_ivp(residual,t_span,SV_0,method='BDF',
                 args=(i_ext,Anode,Cathode),
                 rtol = 1e-8,atol = 1e-10, events=(min_voltage, max_voltage, min_Li_an, max_Li_an, min_Li_ca, max_Li_ca))
     
@@ -238,11 +243,11 @@ for ind, ele in enumerate(Delta_Phi_dl_ca):
 i_dl_ca = -i_ex/A_sg_ca - i_far_ca # Double Layer current [A/m^2]
 
 ## Seperator (Delta_Phi_sep = Phi_el_ca - Ph_el_an)
-# A negative external current to the anode should lead ot Li+ ions traveling from the anode 
+# A positive external current to the anode should lead ot Li+ ions traveling from the anode 
 #   to the cathode. In this case, there should be a potential drop due to the ohmic resistance
 #   which would make Phi_el_ca < Ph_el_an and therefore Delta_Phi_sep < 0.
-# Long way of saying Delta_Phi_sep should have the same sign as i_ext
-Delta_Phi_sep = i_ex*t_sep/sigma_sep # Potential drop across the seperator [V]
+# Long way of saying Delta_Phi_sep should have the opposite sign as i_ext
+Delta_Phi_sep = -i_ex*t_sep/sigma_sep # Potential drop across the seperator [V]
 
 ## Whole Cell
 # Phi_ca - Phi_el_ca = Delta_Phi_dl_ca  
@@ -267,7 +272,7 @@ fig1, (ax1, ax2) = plt.subplots(2)
 ax1.plot(time,i_dl_an,'.-', color='firebrick')
 ax1.plot(time, i_ex/A_sg_an, linewidth=4, color='deepskyblue')
 ax1.plot(time,i_far_an, color='black')
-#ax1.set_ylim((-2*max(abs(i_external))/A_sg_an ,1.5*max(abs(i_external))/A_sg_an))
+ax1.set_ylim((-2*max(abs(i_external))/A_sg_an ,1.5*max(abs(i_external))/A_sg_an))
 ax1.set_title("Current in the Anode")
 ax1.set_xlabel("time [s]")
 ax1.set_ylabel("Current [A/m^2]")
@@ -277,7 +282,7 @@ ax1.legend(['DL','EXT','FAR'], bbox_to_anchor=(1, 0.5), loc = 'center left')
 ax2.plot(time,i_dl_ca,'.-', color='firebrick')
 ax2.plot(time, i_ex/A_sg_ca, linewidth=4, color='deepskyblue')
 ax2.plot(time,i_far_ca, color='black')
-#ax2.set_ylim((-2*max(abs(i_external))/A_sg_an ,1.5*max(abs(i_external))/A_sg_an))
+ax2.set_ylim((-2*max(abs(i_external))/A_sg_an ,1.5*max(abs(i_external))/A_sg_an))
 ax2.set_title("Current in the Cathode")
 ax2.set_xlabel("time [s]")
 ax2.set_ylabel("Current [A/m^2]")
@@ -310,17 +315,17 @@ ax5.plot(time,mol_total,'--')
 ax5.legend(['Anode','Cathode','Total'], bbox_to_anchor=(1, 0.5),loc = 'center left')
 ax5.set_title("Amount of Lithium")
 ax5.set_xlabel("time [s]")
-ax5.set_ylabel("Lithium [mol/m^2]")
+ax5.set_ylabel("Lithium [kmol/m^2]")
 
 # Concentration of Lithium
 ax6.plot(time,C_Li_an/Anode.C_int[Anode.ind_track])
-ax6.plot(time,C_Li_ca/Anode.C_int[Anode.ind_track])
-ax6.plot(time,np.ones_like(C_Li_ca),'--','r')
-ax6.plot(time,np.zeros_like(C_Li_ca),'--','r')
+ax6.plot(time,C_Li_ca/Cathode.C_int[Anode.ind_track])
+ax6.plot(time,np.ones_like(C_Li_ca),'r--')
+ax6.plot(time,np.zeros_like(C_Li_ca),'r--')
 ax6.legend(['Anode','Cathode'], bbox_to_anchor=(1, 0.5),loc = 'center left')
 ax6.set_title("Concentration of Lithium")
 ax6.set_xlabel("time [s]")
-ax6.set_ylabel("Lithium [mol/m^3]")
+ax6.set_ylabel("Lithium [kmol/m^3]")
 fig3.tight_layout()
 
 # Cell Voltage
